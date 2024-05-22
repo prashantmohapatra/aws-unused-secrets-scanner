@@ -1,0 +1,1 @@
+# aws-unused-secrets-scanner
