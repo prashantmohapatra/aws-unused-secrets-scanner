@@ -15,11 +15,19 @@ export class UnusedSecretsScannerStack extends Stack {
     constructor(scope: Construct, id: string, props?: StackProps) {
         super(scope, id, props)
 
+        // Create lifecycle rule for S3 bucket to delete objects after 14 days
+        const lifecycleRule = {
+            id: 'DeleteObjectsAfter14Days',
+            expiration: Duration.days(14),
+            enabled: true,
+        }
+
         // Create an S3 bucket
         const bucket = new s3.Bucket(this, 'UnusedSecretsBucket', {
             versioned: true,
             removalPolicy: cdk.RemovalPolicy.DESTROY,
             autoDeleteObjects: true,
+            lifecycleRules: [lifecycleRule]
         })
 
 
