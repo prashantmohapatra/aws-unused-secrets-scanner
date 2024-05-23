@@ -1,4 +1,4 @@
-import {SecretsManager, S3} from 'aws-sdk'
+import {SecretsManager, S3, SSM} from 'aws-sdk'
 import {Context, Callback} from 'aws-lambda'
 import {createObjectCsvWriter} from 'csv-writer'
 import {SecretListEntry} from "aws-sdk/clients/secretsmanager"
@@ -6,8 +6,11 @@ import * as fs from 'fs'
 
 const secretsManager = new SecretsManager()
 const s3 = new S3()
+const ssm = new SSM()
 const maxUnusedDays = parseInt(process.env.UnusedDays || '90', 10)
 const bucketName = process.env.BucketName || ''
+const suppressedSecretsParameterName = process.env.SuppressedSecretsParameter || ''
+
 
 interface ExtendedSecret extends SecretListEntry {
     Name: string
@@ -15,6 +18,7 @@ interface ExtendedSecret extends SecretListEntry {
     DaysUnused?: number
 }
 
+// Handler
 export const handler = async (event: any, context: Context, callback: Callback): Promise<void> => {
     try {
         //const secrets = await listAllSecrets()
@@ -33,10 +37,10 @@ export const handler = async (event: any, context: Context, callback: Callback):
     }
 }
 
+// Get unused secrets
 const getUnusedSecrets = async (): Promise<ExtendedSecret[]> => {
     const secrets: ExtendedSecret[] = []
-
-
+    const suppressedSecrets = await getSuppressedSecrets()
     let nextToken: string | undefined
 
     do {
@@ -45,7 +49,7 @@ const getUnusedSecrets = async (): Promise<ExtendedSecret[]> => {
 
         for (const secret of secretResponse.SecretList || []) {
             const daysUnused = getDaysUnused(secret)
-            if (daysUnused !== null && daysUnused >= maxUnusedDays) {
+            if (daysUnused !== null && daysUnused >= maxUnusedDays && !suppressedSecrets.includes(secret.Name)) {
                 secrets.push({ Name: secret.Name, LastAccessedDate: secret.LastAccessedDate, DaysUnused: daysUnused } as ExtendedSecret)
             }
             nextToken = secretResponse.NextToken
@@ -60,6 +64,14 @@ const getDaysUnused = (secret: SecretListEntry): number | null => {
     const now = new Date()
     const diffTime = Math.abs(now.getTime() - secret.LastAccessedDate.getTime())
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+}
+
+const getSuppressedSecrets = async (): Promise<string[]> => {
+    const response = await ssm.getParameter({
+        Name: suppressedSecretsParameterName,
+        WithDecryption: true,
+    }).promise()
+    return String(response.Parameter?.Value || '').split(',')
 }
 
 const uploadToS3 = async (unusedSecrets: ExtendedSecret[]): Promise<void> => {

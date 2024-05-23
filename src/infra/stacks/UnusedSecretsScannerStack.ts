@@ -8,6 +8,7 @@ import * as events from 'aws-cdk-lib/aws-events'
 import * as targets from 'aws-cdk-lib/aws-events-targets'
 import * as s3 from 'aws-cdk-lib/aws-s3'
 import * as iam from 'aws-cdk-lib/aws-iam'
+import * as ssm from 'aws-cdk-lib/aws-ssm'
 
 
 export class UnusedSecretsScannerStack extends Stack {
@@ -30,7 +31,14 @@ export class UnusedSecretsScannerStack extends Stack {
             lifecycleRules: [lifecycleRule]
         })
 
+        // Create a parameter in SSM Parameter Store with removal policy
+        const suppressedSecretsParameter = new ssm.StringListParameter(this, 'SuppressedSecretsParameter', {
+            parameterName: '/unusedSecretsScanner/suppressedSecrets',
+            stringListValue: ['my-secret-name', 'my-other-secret-name'],
+            description: 'List of secrets to be suppressed from the Unused Secrets Scanner',
+        })
 
+        // Create the Lambda function
         const checkUnusedSecretsLambda = new NodejsFunction(this, 'UnusedSecretsScannerLambda', {
             runtime: Runtime.NODEJS_18_X,
             handler: 'handler',
@@ -40,12 +48,13 @@ export class UnusedSecretsScannerStack extends Stack {
             environment: {
                 UnusedDays: '90',
                 BucketName: bucket.bucketName,
+                SuppressedSecretsParameter: suppressedSecretsParameter.parameterName,
             },
         })
 
         // Grant the Lambda function permissions to access AWS Secrets Manager
         checkUnusedSecretsLambda.addToRolePolicy(new iam.PolicyStatement({
-            actions: ['secretsmanager:ListSecrets'],
+            actions: ['secretsmanager:ListSecrets', 'ssm:GetParameter'],
             resources: ['*'],
         }))
 
