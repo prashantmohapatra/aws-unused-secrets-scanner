@@ -1,5 +1,5 @@
 import { App } from "aws-cdk-lib"
-import {LambdaStack} from "./stacks/LambdaStack"
+import {UnusedSecretsScannerStack} from "./stacks/UnusedSecretsScannerStack"
 
 const app = new App()
-new LambdaStack(app, 'LambdaStack')
+new UnusedSecretsScannerStack(app, 'UnusedSecretsScannerStack')
