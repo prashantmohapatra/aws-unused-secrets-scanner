@@ -10,6 +10,7 @@ const ssm = new SSM()
 const maxUnusedDays = parseInt(process.env.UnusedDays || '90', 10)
 const bucketName = process.env.BucketName || ''
 const suppressedSecretsParameterName = process.env.SuppressedSecretsParameter || ''
+const deleteUnusedSecrets = process.env.DeleteUnusedSecrets === 'true'
 
 
 interface ExtendedSecret extends SecretListEntry {
@@ -21,13 +22,16 @@ interface ExtendedSecret extends SecretListEntry {
 // Handler
 export const handler = async (event: any, context: Context, callback: Callback): Promise<void> => {
     try {
-        //const secrets = await listAllSecrets()
         const unusedSecrets = await getUnusedSecrets()
 
         console.log('Unused Secrets:', unusedSecrets)
 
         if (unusedSecrets.length > 0) {
             await uploadToS3(unusedSecrets)
+            // TODO: Enable the code below to delete unused secrets
+            // if (deleteUnusedSecrets) {
+            //     await deleteSecrets(unusedSecrets)
+            // }
         }
 
         callback(null, unusedSecrets)
@@ -57,6 +61,21 @@ const getUnusedSecrets = async (): Promise<ExtendedSecret[]> => {
     } while (nextToken)
 
     return secrets
+}
+
+// Delete secrets
+const deleteSecrets = async (secrets: ExtendedSecret[]): Promise<void> => {
+    for (const secret of secrets) {
+        try {
+            await secretsManager.deleteSecret({
+                SecretId: secret.Name,
+                ForceDeleteWithoutRecovery: true
+            }).promise()
+            console.log(`Deleted secret: ${secret.Name}`)
+        } catch (error) {
+            console.error(`Error deleting secret ${secret.Name}:`, error)
+        }
+    }
 }
 
 const getDaysUnused = (secret: SecretListEntry): number | null => {
