@@ -47,6 +47,7 @@ export class UnusedSecretsScannerStack extends Stack {
             memorySize: 256,
             environment: {
                 UnusedDays: '90',
+                DeleteUnusedSecrets: 'false',
                 BucketName: bucket.bucketName,
                 SuppressedSecretsParameter: suppressedSecretsParameter.parameterName,
             },
