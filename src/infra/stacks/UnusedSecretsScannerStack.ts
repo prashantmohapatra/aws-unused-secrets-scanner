@@ -31,7 +31,7 @@ export class UnusedSecretsScannerStack extends Stack {
             lifecycleRules: [lifecycleRule]
         })
 
-        // Create a parameter in SSM Parameter Store with removal policy
+        // Create a parameter in SSM Parameter Store to store the list of suppressed secrets
         const suppressedSecretsParameter = new ssm.StringListParameter(this, 'SuppressedSecretsParameter', {
             parameterName: '/unusedSecretsScanner/suppressedSecrets',
             stringListValue: ['my-secret-name', 'my-other-secret-name'],

@@ -22,12 +22,15 @@ interface ExtendedSecret extends SecretListEntry {
 // Handler
 export const handler = async (event: any, context: Context, callback: Callback): Promise<void> => {
     try {
+        // Get unused secrets
         const unusedSecrets = await getUnusedSecrets()
 
         console.log('Unused Secrets:', unusedSecrets)
 
         if (unusedSecrets.length > 0) {
+            // Upload unused secrets to S3
             await uploadToS3(unusedSecrets)
+
             // TODO: Enable the code below to delete unused secrets
             // if (deleteUnusedSecrets) {
             //     await deleteSecrets(unusedSecrets)
@@ -49,7 +52,6 @@ const getUnusedSecrets = async (): Promise<ExtendedSecret[]> => {
 
     do {
         const secretResponse = await secretsManager.listSecrets({NextToken: nextToken}).promise()
-        // console.log('listAllSecrets - secretResponse:', secretResponse)
 
         for (const secret of secretResponse.SecretList || []) {
             const daysUnused = getDaysUnused(secret)
